@@ -580,6 +580,7 @@ private:
         }
         MagmaKVStore& magmaKVStore;
         bool initialized{false};
+        std::stringstream itemKeyBuf;
         std::shared_ptr<MagmaCompactionCtx> magmaCompactionCtx;
         compaction_ctx* ctx{nullptr};
         MagmaKVHandle kvHandle;
