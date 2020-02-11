@@ -2527,3 +2527,10 @@ void MagmaKVStore::pendingTasks() {
         delVBucket(vbid, vb_version);
     }
 }
+
+DBFileInfo MagmaKVStore::getAggrDbFileInfo() {
+    Magma::MagmaStats stats;
+    magma->GetStats(stats);
+    DBFileInfo vbinfo(stats.ActiveDiskUsage, stats.ActiveDataSize);
+    return vbinfo;
+}
