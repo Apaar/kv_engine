@@ -31,8 +31,10 @@
 
 const char* to_string(enum checkpoint_state s) {
     switch (s) {
-        case CHECKPOINT_OPEN: return "CHECKPOINT_OPEN";
-        case CHECKPOINT_CLOSED: return "CHECKPOINT_CLOSED";
+    case CHECKPOINT_OPEN:
+        return "CHECKPOINT_OPEN";
+    case CHECKPOINT_CLOSED:
+        return "CHECKPOINT_CLOSED";
     }
     return "<unknown>";
 }
@@ -401,8 +403,7 @@ CheckpointQueue Checkpoint::expelItems(
     ChkptQueueIterator iterator = expelUpToAndIncluding.currentPos;
 
     // Record the seqno of the last item to be expelled.
-    highestExpelledSeqno =
-            (*iterator)->getBySeqno();
+    highestExpelledSeqno = (*iterator)->getBySeqno();
 
     auto firstItemToExpel = std::next(begin());
     auto lastItemToExpel = iterator;
@@ -425,8 +426,8 @@ CheckpointQueue Checkpoint::expelItems(
                 auto itr = keyIndex.find(
                         {toExpel->getKey(),
                          toExpel->isCommitted()
-                         ? CheckpointIndexKeyNamespace::Committed
-                         : CheckpointIndexKeyNamespace::Prepared});
+                                 ? CheckpointIndexKeyNamespace::Committed
+                                 : CheckpointIndexKeyNamespace::Prepared});
                 Expects(itr != keyIndex.end());
                 Expects(itr->second.position == expelItr);
                 itr->second.invalidate(end());
@@ -462,29 +463,16 @@ CheckpointQueue Checkpoint::expelItems(
      * (but not including) the item pointed to by iterator.  The item pointed
      * to by iterator is now the new dummy item for the checkpoint queue.
      */
-    expelledItems.splice(expelledItems.begin(),
-                         toWrite,
-                         begin(),
-                         iterator);
+    expelledItems.splice(expelledItems.begin(), toWrite, begin(), iterator);
 
     if (getCheckpointType() == CheckpointType::Disk) {
         // Whilst cp is open, erase the expelled items from the indexes
         for (const auto& expelled : expelledItems) {
-            size_t erased = 0;
             if (expelled->isCheckPointMetaItem()) {
-                erased = metaKeyIndex.erase(expelled->getKey());
+                metaKeyIndex.erase(expelled->getKey());
             } else if (expelled->isCommitted()) {
-                erased = keyIndex.erase(
-                        {expelled->getKey(),
-                         CheckpointIndexKeyNamespace::Committed});
-            }
-
-            if (erased == 0) {
-                std::stringstream ss;
-                ss << *expelled;
-                throw std::logic_error(
-                        "Checkpoint::expelItem: not found in index " +
-                        ss.str());
+                keyIndex.erase({expelled->getKey(),
+                                CheckpointIndexKeyNamespace::Committed});
             }
         }
         // Ask the hash-table's to rehash to fit the new number of elements
@@ -588,7 +576,7 @@ void Checkpoint::addStats(const AddStatFn& add_stat, const void* cookie) {
     add_casted_stat(buf, getVisibleSnapshotEndSeqno(), add_stat, cookie);
 }
 
-std::ostream& operator <<(std::ostream& os, const Checkpoint& c) {
+std::ostream& operator<<(std::ostream& os, const Checkpoint& c) {
     os << "Checkpoint[" << &c << "] with"
        << " id:" << c.checkpointId << " seqno:{" << c.getLowSeqno() << ","
        << c.getHighSeqno() << "}"

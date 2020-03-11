@@ -2361,6 +2361,87 @@ TEST_P(CheckpointTest, CursorPlacedAtCkptStartSeqnoCorrectly) {
     EXPECT_EQ(2, regRes.cursor.lock()->getId());
 }
 
+// Test that can expel items and that we have the correct behaviour when we
+// register cursors for items that have been expelled.
+TEST_P(CheckpointTest, ExpelDiskCheckpointTwoSetVBStates) {
+    this->manager->updateCurrentSnapshot(1003, 1003, CheckpointType::Disk);
+
+    auto& cm = *this->manager;
+    auto& vb = *this->vbucket;
+    cm.queueSetVBState(vb);
+
+    cm.queueSetVBState(vb);
+
+    for (auto ii = 0; ii < 3; ii++) {
+        EXPECT_TRUE(this->queueNewItem("key" + std::to_string(ii)));
+    }
+
+    ASSERT_EQ(1, this->manager->getNumCheckpoints()); // Single open checkpoint.
+    ASSERT_EQ(3, this->manager->getNumOpenChkItems());
+    ASSERT_EQ(3, manager->getNumItemsForCursor(cursor));
+    ASSERT_EQ(1000 + 3, this->manager->getHighSeqno());
+
+    bool isLastMutationItem{true};
+    for (auto ii = 0; ii < 3; ++ii) {
+        auto item = manager->nextItem(cursor, isLastMutationItem);
+        ASSERT_FALSE(isLastMutationItem);
+    }
+
+    std::vector<queued_item> items;
+    this->manager->getItemsForPersistence(items, 10);
+
+    /*
+     * Checkpoint now looks as follows:
+     * 1000 - dummy item
+     * 1001 - checkpoint start
+     * 1001 - 1st item (key0)
+     * 1002 - 2nd item (key1) <<<<<<< persistenceCursor
+     * 1003 - 3rd item (key2)
+     */
+
+    CheckpointManager::ExpelResult expelResult =
+            this->manager->expelUnreferencedCheckpointItems();
+    EXPECT_EQ(5, expelResult.expelCount);
+    EXPECT_LT(0, expelResult.estimateOfFreeMemory);
+    EXPECT_EQ(5, this->global_stats.itemsExpelledFromCheckpoints);
+
+    /*
+     * After expelling checkpoint now looks as follows:
+     * 1000 - dummy Item <<<<<<< persistenceCursor
+     * 1003 - 3rd item (key 2)
+     */
+
+    /*
+     * We have expelled:
+     * 1001 - checkpoint start
+     * 1001 - 1st item (key 0)
+     * 1002 - 2nd item (key 1)
+     */
+
+    // The full checkpoint still contains the 3 items added.
+    EXPECT_EQ(3, this->manager->getNumOpenChkItems());
+
+    // Try to register a DCP replication cursor from 1001 - an expelled item.
+    std::string dcp_cursor1(DCP_CURSOR_PREFIX + std::to_string(1));
+    CursorRegResult regResult =
+            this->manager->registerCursorBySeqno(dcp_cursor1.c_str(), 1001);
+    EXPECT_EQ(1003, regResult.seqno);
+    EXPECT_TRUE(regResult.tryBackfill);
+
+    // Try to register a DCP replication cursor from 1002 - the dummy item.
+    std::string dcp_cursor2(DCP_CURSOR_PREFIX + std::to_string(2));
+    regResult = this->manager->registerCursorBySeqno(dcp_cursor2.c_str(), 1002);
+    EXPECT_EQ(1003, regResult.seqno);
+    EXPECT_TRUE(regResult.tryBackfill);
+
+    // Try to register a DCP replication cursor from 1003 - the first
+    // valid in-checkpoint item.
+    std::string dcp_cursor3(DCP_CURSOR_PREFIX + std::to_string(3));
+    regResult = this->manager->registerCursorBySeqno(dcp_cursor3.c_str(), 1003);
+    EXPECT_EQ(1004, regResult.seqno);
+    EXPECT_FALSE(regResult.tryBackfill);
+}
+
 INSTANTIATE_TEST_CASE_P(
         AllVBTypesAllEvictionModes,
         CheckpointTest,
