@@ -467,6 +467,31 @@ CheckpointQueue Checkpoint::expelItems(
                          begin(),
                          iterator);
 
+    if (getCheckpointType() == CheckpointType::Disk) {
+        // Whilst cp is open, erase the expelled items from the indexes
+        for (const auto& expelled : expelledItems) {
+            size_t erased = 0;
+            if (expelled->isCheckPointMetaItem()) {
+                erased = metaKeyIndex.erase(expelled->getKey());
+            } else if (expelled->isCommitted()) {
+                erased = keyIndex.erase(
+                        {expelled->getKey(),
+                         CheckpointIndexKeyNamespace::Committed});
+            }
+
+            if (erased == 0) {
+                std::stringstream ss;
+                ss << *expelled;
+                throw std::logic_error(
+                        "Checkpoint::expelItem: not found in index " +
+                        ss.str());
+            }
+        }
+        // Ask the hash-table's to rehash to fit the new number of elements
+        metaKeyIndex.reserve(metaKeyIndex.size());
+        keyIndex.reserve(keyIndex.size());
+    }
+
     // Return the items that have been expelled in a separate queue.
     return expelledItems;
 }
