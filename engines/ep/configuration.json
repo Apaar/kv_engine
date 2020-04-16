@@ -275,7 +275,7 @@
             }
         },
         "cursor_dropping_checkpoint_mem_upper_mark": {
-            "default": "50",
+            "default": "100",
             "descr": "Percentage of memQuota used by checkpoints, above which checkpoint cursor dropping will commence",
             "dynamic": true,
             "type": "size_t",
@@ -989,7 +989,7 @@
             "type": "float"
         },
         "magma_max_commit_points": {
-            "default": "5",
+            "default": "0",
             "dynamic": false,
             "descr": "Maximum # of commit points retained for rollback.",
             "type": "size_t"
@@ -1007,7 +1007,7 @@
             "type": "size_t"
         },
         "magma_write_cache_ratio": {
-            "default": "0.2",
+            "default": "0.4",
             "dynamic": false,
             "descr": "Memory is maintained across 3 magma components; Bloom filters, Block cache and Write cache. The least important of these is the write cache. If there is insufficent memory for the write cache, the write cache will grow to the size of the batch and then be immediately flushed and freed. If there is available memory, the write cache is limited to 20% of the available memory (after bloom filter and block cache get their memory up to magma_max_write_cache (128MB). Bloom filters are the most important and are never paged out. Bloom filter memory can cause magma to go above the memory quota. To allevaite this, the bottom layer where the majority of bloom filter memory is, won't use bloom filters when OptimizeBloomFilterForMisses is on (which it is by default). The block cache grows each time the index sizes change. But its growth is bounded by the available memory or what's left over after the bloom filter memory is subtracted.",  
             "type": "float"
@@ -1019,13 +1019,13 @@
             "type": "size_t"
         },
         "magma_mem_quota_ratio": {
-            "default": "0.1",
+            "default": "0.3",
             "dynamic": false,
             "descr": "Magma total memory ratio of the Bucket Quota across all shards.",
             "type": "float"
         },
         "magma_enable_direct_io": {
-            "default": "false",
+            "default": "true",
             "dynamic": false,
             "descr": "Using direct IO tells magma to bypass the file system cache when writing or reading sstables.",
             "type": "bool"
@@ -1043,13 +1043,13 @@
             "type": "size_t"
         },
         "magma_num_flushers": {
-            "default": "4",
+            "default": "32",
             "dynamic": false,
             "descr": "Number of threads across all magma instances to write filled memtables to disk.",
             "type": "size_t"
         },
         "magma_num_compactors": {
-            "default": "16",
+            "default": "64",
             "dynamic": false,
             "descr": "Number of background compactor threads across all magma instances used to compact magma tables.",
             "type": "size_t"
